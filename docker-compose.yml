@@ -1,0 +1,12 @@
+version: "3"
+
+services:
+  bot:
+    command: python3 main.py
+    restart: unless-stopped
+    build:
+      context: "./"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "2048m"
