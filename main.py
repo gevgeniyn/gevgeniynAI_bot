@@ -1,57 +1,68 @@
-from telegram import ReplyKeyboardMarkup, Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
+import logging
+from openai import OpenAI  # Импортируем новый клиент OpenAI
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-async def start(update: Update, context: CallbackContext) -> None:
-    # Получаем имя пользователя
-    user = update.message.from_user
-    first_name = user.first_name  # Имя пользователя
+# Настройка логирования
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-    # Создаем клавиатуру с кнопками
-    keyboard = [
-        ['Написать рецензию', 'Написать отзыв'],
-        
-    ]
-    
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    
-    # Адресное приветствие
-    greeting = f"Здравствуйте, {first_name}! Я электронный помощник ОСПО (отдела сопровождения платного обучения) УУНиТ (Уфимского университета науки и технологий). Буду рад оказать помощь в отношении платного обучения, предоставляю Вам основную информацию. Выберите интерсующий Вас вопрос и нажмите на соответствующую кнопку"
-    
-    # Отправляем сообщение с клавиатурой
-    await update.message.reply_text(greeting, reply_markup=reply_markup)
+# Ваш API ключ от DeepSeek
+DEEPSEEK_API_KEY = "sk-6e9d97038c104c549e5df40bce59cc9d"  # Замените на ваш ключ DeepSeek
+DEEPSEEK_API_URL = "https://api.deepseek.com"  # Базовый URL DeepSeek API
 
-async def handle_message(update: Update, context: CallbackContext) -> None:
-    user = update.message.from_user
-    first_name = user.first_name  # Имя пользователя
-    user_message = update.message.text
-    
-    # Обрабатываем нажатие кнопки и формируем адресный ответ
-    if user_message == 'Написать рецензию':
-        response = f"{first_name},чтобы мне написать рецензию попрошу вас ответить на несколько вопросов"
-    elif user_message == 'Написать отзыв':
-        response = f"{first_name}, чтобы мне написать отзыв попрошу вас ответить на несколько вопросов"
-    else:
-        response = f"{first_name}, пока не могу ответить на это сообщение, извините"
+# Инициализация клиента OpenAI с указанием базового URL DeepSeek API
+client = OpenAI(
+    api_key=DEEPSEEK_API_KEY,
+    base_url=DEEPSEEK_API_URL
+)
 
-    # Создаем новую клавиатуру
-    keyboard = [
-        ['Написать рецензию', 'Написать отзыв'],
-        
-    ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    
-    # Отправляем ответ с клавиатурой
-    await update.message.reply_text(response, reply_markup=reply_markup)
+# Функция для взаимодействия с DeepSeek API
+def call_deepseek_api(text: str) -> str:
+    try:
+        # Используем модель DeepSeek
+        response = client.chat.completions.create(
+            model="deepseek-chat",  # Укажите модель DeepSeek
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": text}
+            ],
+            stream=False
+        )
+        # Возвращаем ответ от модели
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        logger.error(f"Ошибка при запросе к DeepSeek API: {e}")
+        return f"Ошибка при запросе к DeepSeek API: {e}"
+
+# Команда /start
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text('Привет! Я бот, который использует DeepSeek API. Отправь мне текст для анализа.')
+
+# Обработка текстовых сообщений
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_text = update.message.text
+    response = call_deepseek_api(user_text)  # Синхронный вызов
+    await update.message.reply_text(response)
+
+# Обработка ошибок
+async def error(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.warning(f'Update {update} caused error {context.error}')
 
 def main() -> None:
-    # Укажите ваш токен
+    # Вставьте сюда ваш токен от Telegram бота
     application = Application.builder().token("7093297396:AAEKVFllfoh7fGwUp1n3FEOQOiIQmZY6HQc").build()
-    
-    # Регистрируем обработчики
+
+    # Регистрация обработчиков команд
     application.add_handler(CommandHandler("start", start))
+
+    # Регистрация обработчика текстовых сообщений
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    
-    # Запускаем бота
+
+    # Регистрация обработчика ошибок
+    application.add_error_handler(error)
+
+    # Запуск бота
     application.run_polling()
 
 if __name__ == '__main__':
