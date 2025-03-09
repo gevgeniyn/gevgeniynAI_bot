@@ -27,9 +27,9 @@ async def handle_message(update: Update, context: CallbackContext) -> None:
     
     # Обрабатываем нажатие кнопки и формируем адресный ответ
     if user_message == 'Написать рецензию':
-        response = f"{first_name},чтобы мне написать рецензию"
+        response = f"{first_name},чтобы мне написать рецензию попрошу вас ответить на несколько вопросов"
     elif user_message == 'Написать отзыв':
-        response = f"{first_name}, чтобы мне написать отзыв"
+        response = f"{first_name}, чтобы мне написать отзыв попрошу вас ответить на несколько вопросов"
     else:
         response = f"{first_name}, пока не могу ответить на это сообщение, извините"
 
